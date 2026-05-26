@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-SailadvApplication<sailadv>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.adv.sailadv.SailadvApplication",
+            "projectName": "sailadv",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
