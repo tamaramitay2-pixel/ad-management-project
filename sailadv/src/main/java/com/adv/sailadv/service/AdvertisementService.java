@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class AdvertisementService {
     @Autowired
     private AreaRepository areaRepository;
 
+    
     // הגדרת הנתיב לשמירת התמונות - בדיוק לפי הנחיות הפרויקט
     private final String FOLDER_PATH = "C:\\myFolder\\";
 
@@ -53,35 +55,36 @@ public class AdvertisementService {
         }
     }
 
-    /**
-     * פונקציה 2: הוספת פרסומת לפי זמן ובדיקת כניסה לתור
+  /**
+     * פונקציה 2: הוספת פרסומת לפי זמן
      */
     public AdvertisementStatus addTimeAdvertisement(TimeAdvertisement ta) {
         ta.setCreationDate(LocalDateTime.now());
-        ta.setPaid(true); // קביעה אוטומטית ששולם לאחר תהליך הרכישה
+        ta.setPaid(true); 
         
         Area area = areaRepository.findById(ta.getArea().getId())
                 .orElseThrow(() -> new RuntimeException("אזור לא נמצא"));
-              // חישוב המחיר לפרסומת זמן
-        double calculatedPrice = ta.getLimitMinutes() * area.getPricePerMinute();
-        ta.setPrice(calculatedPrice);
+        ta.setPrice(ta.getLimitMinutes() * area.getPricePerMinute());
         
-        // אם האזור פנוי - הפרסומת פעילה, אחרת - ממתינה בתור
-        if (area.isFree()) {
+        // בדיקה: האם יש מישהו שממתין בתור לאזור הזה?
+        boolean isQueueEmpty = advertisementRepository.findFirstByAreaAndStatusOrderByCreationDateAsc(area, AdvertisementStatus.PENDING).isEmpty();
+        
+        // הפרסומת תיכנס לאקטיב *רק* אם התור ריק, וגם ה"מוח" מאשר
+        if (isQueueEmpty && canBecomeActive(ta, area)) {
             ta.setStatus(AdvertisementStatus.ACTIVE);
             if (ta.isFixed()) {
                 area.setFree(false);
                 areaRepository.save(area);
             }
         } else {
-            ta.setStatus(AdvertisementStatus.PENDING);
+            ta.setStatus(AdvertisementStatus.PENDING); // יש תור? לך לסוף התור!
         }
         
         return advertisementRepository.save(ta).getStatus();
     }
 
     /**
-     * פונקציה 3: הוספת פרסומת לפי צפיות ובדיקת כניסה לתור
+     * פונקציה 3: הוספת פרסומת לפי צפיות
      */
     public AdvertisementStatus addViewsAdvertisement(ViewsAdvertisement va) {
         va.setCreationDate(LocalDateTime.now());
@@ -89,65 +92,73 @@ public class AdvertisementService {
         
         Area area = areaRepository.findById(va.getArea().getId())
                 .orElseThrow(() -> new RuntimeException("אזור לא נמצא"));
-          // חישוב המחיר לפרסומת צפיות
-        double calculatedPrice = va.getTargetViews() * area.getPricePerView();
-        va.setPrice(calculatedPrice);
+        va.setPrice(va.getTargetViews() * area.getPricePerView());
 
-        if (area.isFree()) {
+        // בדיקה: האם יש מישהו שממתין בתור לאזור הזה?
+        boolean isQueueEmpty = advertisementRepository.findFirstByAreaAndStatusOrderByCreationDateAsc(area, AdvertisementStatus.PENDING).isEmpty();
+
+        // הפרסומת תיכנס לאקטיב *רק* אם התור ריק, וגם ה"מוח" מאשר
+        if (isQueueEmpty && canBecomeActive(va, area)) {
             va.setStatus(AdvertisementStatus.ACTIVE);
             if (va.isFixed()) {
                 area.setFree(false);
                 areaRepository.save(area);
             }
         } else {
-            va.setStatus(AdvertisementStatus.PENDING);
+            va.setStatus(AdvertisementStatus.PENDING); // יש תור? לך לסוף התור!
         }
         
         return advertisementRepository.save(va).getStatus();
     }
-
-    /**
-     * פונקציה 4: שליפת כל הפרסומות הפעילות (יופעל בכל רענון של האתר)
-     * מעלה את מונה הצפיות ומפנה את האזור אם פרסומת צפיות הגיעה ליעד.
+   /**
+     * פונקציה 4א: העלאת מונה צפיות לפרסומת ספציפית ומעבר בתור במידת הצורך
      */
     @Transactional
-    public List<Advertisement> getActiveAdvertisementsAndUpdateViews(String userIp) {
-        List<Advertisement> activeAds = new ArrayList<>();
-        List<Area> allAreas = areaRepository.findAll();
+    public void addViewToAdvertisement(Long code, String userIp) {
 
-        for (Area area : allAreas) {
-            List<Advertisement> adsInArea = advertisementRepository.findByAreaAndStatus(area, AdvertisementStatus.ACTIVE);
-            
-            for (Advertisement adv : adsInArea) {
-                
-                // בדיקה: האם ה-IP הזה חדש עבור הפרסומת הזו?
-                if (!adv.getViewedIps().contains(userIp)) {
+        Advertisement adv = advertisementRepository.findById(code)
+                .orElseThrow(() -> new RuntimeException("פרסומת לא נמצאה"));
+
+        // הגנה חכמה: זריקת שגיאה ברורה אם מנסים לצפות בפרסומת לא פעילה
+         if (adv.getStatus() != AdvertisementStatus.ACTIVE) {
+            throw new RuntimeException("שגיאה: לא ניתן לרשום צפייה - הפרסומת אינה פעילה כרגע.");
+            }
+
+        // בדיקה אם ה-IP הזה חדש
+        if (!adv.getViewedIps().contains(userIp)) {
+            adv.setViewsCount(adv.getViewsCount() + 1);
+            adv.getViewedIps().add(userIp);
+            advertisementRepository.save(adv);
+
+            // אם זו פרסומת צפיות, בודקים אם הגיעה ליעד
+            if (adv instanceof ViewsAdvertisement) {
+                ViewsAdvertisement viewsAdv = (ViewsAdvertisement) adv;
+                if (viewsAdv.getViewsCount() >= viewsAdv.getTargetViews()) {
+                    viewsAdv.setStatus(AdvertisementStatus.COMPLETED);
+                    Area area = viewsAdv.getArea();
                     
-                    adv.setViewsCount(adv.getViewsCount() + 1);
-                    adv.getViewedIps().add(userIp); // שמירת ה-IP כדי שלא נספור אותו שוב
-                    
-                    if (adv instanceof ViewsAdvertisement) {
-                        ViewsAdvertisement viewsAdv = (ViewsAdvertisement) adv;
-                        if (viewsAdv.getViewsCount() >= viewsAdv.getTargetViews()) {
-                            viewsAdv.setStatus(AdvertisementStatus.COMPLETED); 
-                            if (viewsAdv.isFixed()) {
-                                area.setFree(true);
-                            }
-                            areaRepository.save(area);
-                            advertisementRepository.save(viewsAdv);
-                            
-                            activateNextInQueue(area);
-                            continue; 
-                        }
+                    if (viewsAdv.isFixed()) {
+                        area.setFree(true);
+                        areaRepository.save(area);
                     }
+                    advertisementRepository.save(viewsAdv);
+                    activateNextInQueue(area); // הקפצת הבא בתור
                 }
-                activeAds.add(adv);
             }
         }
-        advertisementRepository.saveAll(activeAds);
-        return activeAds;
     }
 
+    /**
+     * פונקציה 4ב: שליפת כל הפרסומות הפעילות נטו להצגה באתר (ללא ספירת צפיות)
+     */
+    public List<Advertisement> getOnlyActiveAdvertisements() {
+        List<Advertisement> activeAds = new ArrayList<>();
+        List<Area> allAreas = areaRepository.findAll();
+        for (Area area : allAreas) {
+            activeAds.addAll(advertisementRepository.findByAreaAndStatus(area, AdvertisementStatus.ACTIVE));
+        }
+        return activeAds;
+    }
     /**
      * פונקציה 5: תזמון אוטומטי - רץ כל 60 שניות כדי לבדוק פרסומות זמן
      */
@@ -181,6 +192,26 @@ public class AdvertisementService {
             }
         }
     }
+    /**
+     * פונקציית עזר: "המוח" של הקרוסלה. בודקת אם פרסומת יכולה להיכנס עכשיו לאקטיב.
+     */
+    private boolean canBecomeActive(Advertisement newAd, Area area) {
+        List<Advertisement> activeAds = advertisementRepository.findByAreaAndStatus(area, AdvertisementStatus.ACTIVE);
+        
+        // חוק 1: אם יש כרגע פרסומת "נועלת" באוויר - חסום לכולם
+        boolean hasFixed = activeAds.stream().anyMatch(Advertisement::isFixed);
+        if (hasFixed) {
+            return false;
+        }
+
+        // חוק 2: פרסומת "נועלת" דורשת שהאזור יהיה ריק לחלוטין (0 פרסומות אחרות)
+        if (newAd.isFixed()) {
+            return activeAds.isEmpty();
+        }
+
+        // חוק 3: פרסומת רגילה יכולה להיכנס אם יש פחות מ-3 פרסומות כרגע בקרוסלה
+        return activeAds.size() < 3;
+    }
 
     /**
      * פונקציה 6 (עזר פנימית): שולפת את הפרסומת הראשונה מהתור ומעבירה אותה לפעילה
@@ -201,4 +232,5 @@ public class AdvertisementService {
             advertisementRepository.save(adv);
         }
     }
+    
 }

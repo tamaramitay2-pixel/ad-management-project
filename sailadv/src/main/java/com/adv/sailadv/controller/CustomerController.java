@@ -6,7 +6,13 @@ import com.adv.sailadv.mapper.CustomerMapper;
 import com.adv.sailadv.service.CustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+ import org.springframework.http.ResponseEntity; 
 
+// ...
+
+    /**
+     * נתיב להתחברות לקוח
+     */
 @RestController
 @RequestMapping("/api/customers")
 @CrossOrigin // שורה קריטית! מאפשרת לאתר ב-React/Angular לתקשר עם השרת שלנו
@@ -22,14 +28,21 @@ public class CustomerController {
      * נתיב להתחברות לקוח
      * הכתובת תהיה: POST http://localhost:8080/api/customers/login
      */
+ 
     @PostMapping("/login")
-    public CustomerDto login(@RequestParam String email, @RequestParam String password) {
+    public ResponseEntity<?> login(@RequestParam String email, @RequestParam String password) {
         
-        // 1. ה-Controller מעביר את הבקשה ל-Service (המוח) כדי שיבדוק אם הלקוח קיים
-        Customer customer = customerService.login(email, password);
+        // 1. נבדוק אם הסיסמה נכונה (מחזיר true או false)
+        boolean isAuthenticated = customerService.login(email, password);
         
-        // 2. משתמשים ב-Mapper כדי להמיר את הלקוח האמיתי ל-DTO נקי ובטוח (בלי הסיסמה!)
-        return customerMapper.toDto(customer); 
+        if (isAuthenticated) {
+            // אם הצליח, נשלוף את הלקוח המלא ונחזיר DTO
+            Customer customer = customerService.findByEmail(email); // וודאי שיש לך פונקציה כזו ב-Service
+            return ResponseEntity.ok(customerMapper.toDto(customer));
+        } else {
+            // אם נכשל, נחזיר שגיאה (סטטוס 401 Unauthorized)
+            return ResponseEntity.status(401).body("שגיאה: אימייל או סיסמה לא נכונים.");
+        }
     }
     /**
      * נתיב להרשמת/הוספת לקוח חדש
