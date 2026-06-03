@@ -1,5 +1,4 @@
 package com.adv.sailadv.dto;
-
 import com.adv.sailadv.entity.AdvertisementStatus;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -11,14 +10,17 @@ public class AdvertisementDto {
     // במקום לשמור את כל אובייקט הלקוח והאזור (מה שייצור עומס), 
     // אנחנו מעבירים ב-DTO רק את תעודות הזהות (ID) שלהם!
     private Long customerId; 
-    private Integer areaId;  
-    
+    private Integer areaId; 
+
+    private String link;
+    private String title;
     private AdvertisementStatus status;
     private boolean isFixed;
     private int viewsCount;
     private double price;
     private boolean isPaid;
     private LocalDateTime creationDate;
+    private int clicksCount;
     
     // שדות ספציפיים לסוגי הפרסומות:
     private String type; // נשמור כאן "TIME" או "VIEWS" כדי שהשרת ידע איזה סוג ליצור

@@ -100,4 +100,25 @@ public class AdvertisementController {
         
         return status;
     }
+    /**
+     * 4. נתיב לאזור האישי: קבלת כל הפרסומות של לקוח מסוים לפי ID
+     * הכתובת: GET http://localhost:8080/api/advertisements/customer/{customerId}
+     */
+    @GetMapping("/customer/{customerId}")
+    public List<AdvertisementDto> getCustomerAds(@PathVariable Long customerId) {
+        List<Advertisement> customerAds = advertisementService.getCustomerAdvertisements(customerId);
+        
+        return customerAds.stream()
+                .map(advertisementMapper::toDto)
+                .collect(Collectors.toList());
+    }
+    /**
+     * נתיב להעלאת מונה ההקלקות (Clicks)
+     * GET http://localhost:8080/api/advertisements/click/{code}
+     */
+    @GetMapping("/click/{code}")
+    public ResponseEntity<String> addClickToAd(@PathVariable Long code) {
+        advertisementService.addClickToAdvertisement(code);
+        return ResponseEntity.ok("Click registered for ad: " + code);
+    }
 }

@@ -28,6 +28,11 @@ public class AdvertisementMapper {
         dto.setPaid(entity.isPaid());
         dto.setCreationDate(entity.getCreationDate());
 
+        // --- השדות החדשים שהוספנו! ---
+        dto.setTitle(entity.getTitle());
+        dto.setLink(entity.getLink());
+        dto.setClicksCount(entity.getClicksCount());
+        // ------------------------------
         // בדיקה איזה סוג פרסומת זה כדי לשלוף את הנתון הייחודי
         if (entity instanceof TimeAdvertisement) {
             dto.setType("TIME");

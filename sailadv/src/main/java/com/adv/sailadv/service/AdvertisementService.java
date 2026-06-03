@@ -164,7 +164,7 @@ public class AdvertisementService {
      */
     @Scheduled(fixedRate = 60000)
     @Transactional
-    public void checkTimeAdvertisements() {
+    public void checkAdvertisements() {
         List<Area> allAreas = areaRepository.findAll();
         for (Area area : allAreas) {
             List<Advertisement> activeAds = advertisementRepository.findByAreaAndStatus(area, AdvertisementStatus.ACTIVE);
@@ -231,6 +231,22 @@ public class AdvertisementService {
             }
             advertisementRepository.save(adv);
         }
+    }
+    /**
+     * פונקציה 7: שליפת כל הפרסומות של לקוח ספציפי לאזור האישי
+     */
+    public List<Advertisement> getCustomerAdvertisements(Long customerId) {
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        return advertisementRepository.findByCustomer(customer);
+    }
+    
+    @Transactional
+    public void addClickToAdvertisement(Long code) {
+        Advertisement adv = advertisementRepository.findById(code)
+                .orElseThrow(() -> new RuntimeException("פרסומת לא נמצאה"));
+        adv.setClicksCount(adv.getClicksCount() + 1);
+        advertisementRepository.save(adv);
     }
     
 }

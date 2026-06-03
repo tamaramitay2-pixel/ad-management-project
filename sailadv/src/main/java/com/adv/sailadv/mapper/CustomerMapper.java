@@ -18,6 +18,8 @@ public class CustomerMapper {
         CustomerDto dto = new CustomerDto();
         dto.setId(entity.getId());
         dto.setEmail(entity.getEmail());
+        dto.setName(entity.getName()); // <--- השורה החדשה שהוספנו!
+        
         // שימי לב: אנחנו בכוונה לא מעתיקים לכאן את הסיסמה מטעמי אבטחת מידע!
 
         return dto;
@@ -34,6 +36,7 @@ public class CustomerMapper {
         Customer entity = new Customer();
         entity.setId(dto.getId());
         entity.setEmail(dto.getEmail());
+        entity.setName(dto.getName()); // <--- השורה החדשה שהוספנו!
         
         // את הסיסמה אנחנו מקבלים בנפרד (או שולפים מהבקשה המקורית) ומכניסים לישות
         entity.setPassword(password); 

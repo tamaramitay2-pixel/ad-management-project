@@ -27,6 +27,10 @@ public abstract class Advertisement {
     @Enumerated(EnumType.STRING)
     private AdvertisementStatus status; 
 
+    private String link;
+
+    private String title;
+    
     private boolean isFixed; 
 
     private int viewsCount; 

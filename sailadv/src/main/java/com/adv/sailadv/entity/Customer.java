@@ -1,7 +1,7 @@
 package com.adv.sailadv.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -17,7 +17,11 @@ public class Customer {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @JsonIgnore
+    @Column
+    private String name;
+
+
     @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 }
